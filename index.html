@@ -3,85 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
-    <title>Realtime Tracking Web App</title>
+    <title>Realtime Tracking - Angkot App</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        #map { height: 500px; }
+        .container { width: 90%; margin: auto; }
+        .button { margin: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .panel { display: none; margin-top: 20px; }
+        @media (max-width: 600px) {
+            #map { height: 300px; }
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
-    <header>
-        <h1>Realtime Tracking Application</h1>
-        <nav>
-            <a href="#home">Home</a>
-            <a href="#driver_login">Driver Login</a>
-            <a href="#user_login">User Login</a>
-        </nav>
-    </header>
-    <main>
-        <section id="home">
-            <h2>Welcome to the Realtime Tracking Application</h2>
-            <p>Track your drivers and routes in real-time!</p>
-        </section>
-        <section id="driver_login">
+    <div class="container">
+        <h1>Angkot Realtime Tracking</h1>
+        <button class="button" id="driverBtn">Driver Login</button>
+        <button class="button" id="userBtn">User Login</button>
+
+        <div id="driverPanel" class="panel">
             <h2>Driver Login</h2>
-            <form id="driverLoginForm">
-                <label for="driverId">Driver ID:</label>
-                <input type="text" id="driverId" required>
-                <label for="password">Password:</label>
-                <input type="password" id="password" required>
-                <button type="submit">Login</button>
-            </form>
-            <div id="driverMap" style="height:400px;"></div>
-        </section>
-        <section id="user_login">
+            <input type="text" id="driverId" placeholder="Enter Driver ID" />
+            <button class="button" id="loginDriverBtn">Login</button>
+        </div>
+
+        <div id="userPanel" class="panel">
             <h2>User Login</h2>
-            <form id="userLoginForm">
-                <label for="username">Username:</label>
-                <input type="text" id="username" required>
-                <label for="userPassword">Password:</label>
-                <input type="password" id="userPassword" required>
-                <button type="submit">Login</button>
-            </form>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2026 Realtime Tracking App. All rights reserved.</p>
-    </footer>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.2.1/firebase-app.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.2.1/firebase-auth.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.2.1/firebase-firestore.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fcm-notifications/1.0.0/fcm-notifications.js"></script>
+            <input type="text" id="userId" placeholder="Enter User ID" />
+            <button class="button" id="loginUserBtn">Login</button>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/firebase@8.6.1/firebase-app.js"></script>
+    <script src="https://unpkg.com/firebase@8.6.1/firebase-auth.js"></script>
+    <script src="https://unpkg.com/firebase@8.6.1/firebase-firestore.js"></script>
+    <script src="https://unpkg.com/firebase@8.6.1/firebase-messaging.js"></script>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-        // Firebase Configuration
-        const firebaseConfig = {
+        // Your Firebase configuration
+        var firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
             projectId: "YOUR_PROJECT_ID",
             storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID",
         };
+
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const messaging = firebase.messaging();
 
-        // Driver Login Functionality
-        document.getElementById('driverLoginForm').onsubmit = function(event) {
-            event.preventDefault();
-            // Login code with driver tracking and route history goes here
-        };
+        document.getElementById('driverBtn').onclick = function() { togglePanel('driver'); };
+        document.getElementById('userBtn').onclick = function() { togglePanel('user'); };
+        document.getElementById('loginDriverBtn').onclick = driverLogin;
+        document.getElementById('loginUserBtn').onclick = userLogin;
 
-        // User Login Functionality
-        document.getElementById('userLoginForm').onsubmit = function(event) {
-            event.preventDefault();
-            // Login code with driver tracking goes here
-        };
+        function togglePanel(role) {
+            document.getElementById('driverPanel').style.display = role === 'driver' ? 'block' : 'none';
+            document.getElementById('userPanel').style.display = role === 'user' ? 'block' : 'none';
+            initMap();
+        }
 
-        // Leaflet Map Initialization
-        const map = L.map('driverMap').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-            maxZoom: 19,
-        }).addTo(map);
-        // Additional map features and routing logic
+        function driverLogin() {
+            const driverId = document.getElementById('driverId').value;
+            // Authenticate driver
+            // Start GPS tracking and update Firestore
+            // Send FCM notifications to users
+        }
+
+        function userLogin() {
+            const userId = document.getElementById('userId').value;
+            // Authenticate user
+            // Load map and real-time data
+        }
+
+        // Initialize the map
+        function initMap() {
+            var map = L.map('map').setView([-6.200001, 106.816666], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+            // Load markers and routes from Firestore
+        }
     </script>
 </body>
 </html>
