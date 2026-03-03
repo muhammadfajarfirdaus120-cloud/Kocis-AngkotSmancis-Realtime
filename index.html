@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Kocis Realtime Full Multi User</title>
+  <title>Kocis Realtime Full</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Leaflet -->
@@ -19,10 +19,10 @@
 
   <style>
     body{margin:0;font-family:Arial;}
-    #menu{padding:20px;text-align:center;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+    #menu{padding:20px;text-align:center;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,0.1);z-index:1000;position:relative;}
     #menu button{padding:10px 20px;margin:5px;font-size:1em;border:none;background:#4CAF50;color:white;border-radius:5px;cursor:pointer;}
     #menu input{padding:8px;margin:5px;width:200px;border:1px solid #ccc;border-radius:5px;}
-    #map{height:100vh;display:none;position:relative;}
+    #map{height:100vh;display:none;position:relative;z-index:0;}
     #passengerPanel{display:none;position:absolute;bottom:20px;left:20px;background:white;padding:15px;border-radius:8px;z-index:1000;max-width:250px;}
     #passengerList{list-style:none;padding:0;}
     #passengerList li{padding:6px 0;border-bottom:1px solid #eee;}
@@ -31,7 +31,7 @@
 <body>
 
 <div id="menu">
-  <h2>Kocis Realtime Web (Multi User)</h2>
+  <h2>Kocis Realtime Web (Final)</h2>
   <button onclick="showDriverForm()">Driver</button>
   <button onclick="showUserForm()">User</button>
 
@@ -66,7 +66,6 @@
     appId: "1:675096414309:web:3c003058bb4f1cb6f95e8c",
     measurementId: "G-YFF9CCD5TJ"
   };
-
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const messaging = firebase.messaging();
@@ -74,16 +73,12 @@
   let map, driverMarker, destMarker, routeControl, historyPolyline;
   let routeHistory = [];
   let userFCMToken = null;
-  let currentPhone = "";
 
-  // ===== FCM =====
+  // Minta izin notif & simpan token
   messaging.requestPermission()
-    .then(() => messaging.getToken({vapidKey:"BLlMqJXcBZQ5h64_UmfZS2YgkKOA9kNZUgzaDkYTdZ2OxlUuIIc9krijmgHiGAxhQ9JazGNTlzHq50OAWEfe4M0"}))
-    .then(token => { 
-      console.log("FCM TOKEN:", token); 
-      userFCMToken = token; 
-    })
-    .catch(err => console.warn("Notif permission gagal:",err));
+    .then(()=>messaging.getToken({vapidKey:"BLlMqJXcBZQ5h64_UmfZS2YgkKOA9kNZUgzaDkYTdZ2OxlUuIIc9krijmgHiGAxhQ9JazGNTlzHq50OAWEfe4M0"}))
+    .then(token=>{ console.log("FCM TOKEN:", token); userFCMToken=token; })
+    .catch(err=>console.warn("Notif permission gagal:",err));
 
   function showDriverForm(){ document.getElementById("driverForm").style.display="block"; }
   function showUserForm(){ document.getElementById("userForm").style.display="block"; }
@@ -93,23 +88,17 @@
     const name = document.getElementById("driverName").value;
     const phone = document.getElementById("driverPhone").value;
     if(!name||!phone){ alert("Isi dulu!"); return; }
-    currentPhone = phone;
-
-    // simpan login
-    db.collection("logins").doc(phone).set({
-      name, phone, role:"driver", fcmToken:userFCMToken, loginAt:new Date()
-    }, {merge:true});
 
     document.getElementById("menu").style.display="none";
     document.getElementById("map").style.display="block";
 
-    map = L.map('map').setView([-6.817083,107.548838],16);
+    map=L.map('map').setView([-6.817083,107.548838],16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-    map.invalidateSize();
 
-    db.collection("drivers").doc(phone).set({
-      name, phone, status:"idle", passengers:[], usersActive:[], fcmToken:userFCMToken
-    }, {merge:true});
+    db.collection("drivers").doc("driver1").set({
+      name,phone,status:"idle",passengers:[],usersActive:[],
+      fcmToken: userFCMToken
+    },{merge:true});
 
     if(navigator.geolocation){
       navigator.geolocation.watchPosition(pos=>{
@@ -122,31 +111,42 @@
         else driverMarker.setLatLng([lat,lng]);
 
         map.setView([lat,lng]);
-        db.collection("drivers").doc(phone).set({lat,lng,updatedAt:new Date()},{merge:true});
-      }, err=>alert("GPS gagal:"+err.message), {enableHighAccuracy:true});
+        db.collection("drivers").doc("driver1").set({lat,lng,updatedAt:new Date()},{merge:true});
+      },err=>alert("GPS gagal:"+err.message),{enableHighAccuracy:true});
     }
 
-    map.on('click', e=>{
+    // set tujuan
+    map.on('click',function(e){
       const {lat,lng}=e.latlng;
       if(destMarker) destMarker.setLatLng([lat,lng]);
       else destMarker=L.marker([lat,lng],{icon:L.icon({iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/flag.png",iconSize:[32,32]})}).addTo(map);
-      db.collection("drivers").doc(phone).update({destLat:lat,destLng:lng,status:"berangkat"});
+      db.collection("drivers").doc("driver1").update({destLat:lat,destLng:lng,status:"berangkat"});
       if(routeControl) routeControl.remove();
       routeControl=L.Routing.control({waypoints:[driverMarker.getLatLng(),destMarker.getLatLng()],routeWhileDragging:false}).addTo(map);
       document.getElementById("passengerPanel").style.display="block";
     });
 
-    db.collection("drivers").doc(phone).onSnapshot(doc=>{
+    // show passenger list + user markers
+    db.collection("drivers").doc("driver1").onSnapshot(doc=>{
       if(!doc.exists) return;
-      const d = doc.data();
-      const list = document.getElementById("passengerList");
+      const d=doc.data();
+      const list=document.getElementById("passengerList");
       list.innerHTML="";
       (d.passengers||[]).forEach(p=>list.innerHTML+=`<li>${p.name}<br>${p.phone}</li>`);
+      // user markers
       (d.usersActive||[]).forEach(u=>{
         if(!u.marker){
           u.marker=L.marker([u.lat,u.lng],{icon:L.icon({iconUrl:"https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png",iconSize:[24,24]})})
             .addTo(map).bindTooltip(u.name,{permanent:true});
           u.marker.userId=u.phone;
+          // klik driver marker → user masuk passenger
+          u.marker.off('click').on('click',()=>{
+            let ps = d.passengers || [];
+            if(!ps.find(x=>x.phone===u.phone)){
+              ps.push({name:u.name, phone:u.phone});
+              db.collection("drivers").doc("driver1").update({passengers: ps});
+            }
+          });
         } else u.marker.setLatLng([u.lat,u.lng]);
       });
     });
@@ -154,22 +154,15 @@
 
   // ===== USER =====
   function startUser(){
-    const name = document.getElementById("userName").value;
-    const phone = document.getElementById("userPhone").value;
+    const name=document.getElementById("userName").value;
+    const phone=document.getElementById("userPhone").value;
     if(!name||!phone){ alert("Isi dulu!"); return; }
-    currentPhone = phone;
-
-    // simpan login
-    db.collection("logins").doc(phone).set({
-      name, phone, role:"user", fcmToken:userFCMToken, loginAt:new Date()
-    }, {merge:true});
 
     document.getElementById("menu").style.display="none";
     document.getElementById("map").style.display="block";
 
-    map = L.map('map').setView([-6.817083,107.548838],16);
+    map=L.map('map').setView([-6.817083,107.548838],16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
-    map.invalidateSize();
 
     let notified=false;
     let userMarker=null;
@@ -177,40 +170,46 @@
     if(navigator.geolocation){
       navigator.geolocation.watchPosition(pos=>{
         const lat=pos.coords.latitude, lng=pos.coords.longitude;
-        if(!userMarker) userMarker=L.marker([lat,lng]).addTo(map).bindTooltip(name,{permanent:true});
+        if(!userMarker){ userMarker=L.marker([lat,lng]).addTo(map).bindTooltip(name,{permanent:true}); }
         else userMarker.setLatLng([lat,lng]);
 
-        // update usersActive di semua driver
-        db.collection("drivers").get().then(snapshot=>{
-          snapshot.forEach(driverDoc=>{
-            let d = driverDoc.data();
-            let arr = d.usersActive || [];
-            let idx = arr.findIndex(u=>u.phone===phone);
-            if(idx>=0){ arr[idx].lat=lat; arr[idx].lng=lng; arr[idx].fcmToken=userFCMToken; }
-            else arr.push({name,phone,lat,lng,fcmToken:userFCMToken});
-            db.collection("drivers").doc(driverDoc.id).update({usersActive:arr});
-          });
+        db.collection("drivers").doc("driver1").get().then(doc=>{
+          if(!doc.exists) return;
+          const d=doc.data();
+          let arr=d.usersActive||[];
+          let idx=arr.findIndex(u=>u.phone===phone);
+          if(idx>=0){ arr[idx].lat=lat; arr[idx].lng=lng; }
+          else arr.push({name,phone,lat,lng});
+          db.collection("drivers").doc("driver1").update({usersActive:arr});
         });
       },err=>alert("GPS gagal:"+err.message),{enableHighAccuracy:true});
     }
 
-    // listen driver updates (multi driver)
-    db.collection("drivers").onSnapshot(snapshot=>{
-      snapshot.forEach(doc=>{
-        const d = doc.data();
-        // driver marker
-        if(!d.lat || !d.lng) return;
-        if(!driverMarker || driverMarker.userId !== doc.id){
-          driverMarker = L.marker([d.lat,d.lng]).addTo(map).bindTooltip(d.name,{permanent:true});
-          driverMarker.userId = doc.id;
-        } else driverMarker.setLatLng([d.lat,d.lng]);
+    db.collection("drivers").doc("driver1").onSnapshot(doc=>{
+      if(!doc.exists) return;
+      const d=doc.data();
 
-        // destination & route
-        if(d.destLat && d.destLng){
-          if(!destMarker) destMarker = L.marker([d.destLat,d.destLng]).addTo(map);
-          else destMarker.setLatLng([d.destLat,d.destLng]);
-          if(routeControl) routeControl.remove();
-          routeControl = L.Routing.control({waypoints:[driverMarker.getLatLng(),destMarker.getLatLng()],routeWhileDragging:false}).addTo(map);
+      if(d.status==="berangkat" && !notified){
+        console.log("notif driver berangkat");
+        notified=true;
+      }
+
+      if(!driverMarker) driverMarker=L.marker([d.lat,d.lng]).addTo(map).bindTooltip(d.name,{permanent:true});
+      else driverMarker.setLatLng([d.lat,d.lng]);
+
+      if(d.destLat&&d.destLng){
+        if(!destMarker) destMarker=L.marker([d.destLat,d.destLng]).addTo(map);
+        else destMarker.setLatLng([d.destLat,d.destLng]);
+        if(routeControl) routeControl.remove();
+        routeControl=L.Routing.control({waypoints:[driverMarker.getLatLng(),destMarker.getLatLng()],routeWhileDragging:false}).addTo(map);
+      }
+
+      // klik driver marker → user otomatis masuk passenger
+      driverMarker.off('click').on('click',()=>{
+        let ps=d.passengers||[];
+        if(!ps.find(x=>x.phone===phone)){
+          ps.push({name,phone});
+          db.collection("drivers").doc("driver1").update({passengers:ps});
         }
       });
     });
@@ -218,4 +217,4 @@
 </script>
 
 </body>
-</html>
+</html>          
