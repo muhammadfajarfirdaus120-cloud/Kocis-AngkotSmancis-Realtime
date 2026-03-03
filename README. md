@@ -1,0 +1,18 @@
+# Kocis Realtime Web Multi-User
+
+Website realtime GPS untuk driver dan user.  
+Fitur:
+- Driver & multi-user login
+- Realtime GPS + marker di map
+- Routing ke tujuan menggunakan Leaflet Routing Machine
+- Panel penumpang untuk driver
+- FCM push notification siap
+- Semua login disimpan di Firebase Firestore (`logins` collection)
+
+## Cara Pakai
+1. Edit file `index.html` → ganti config Firebase & VAPID Key.
+2. Publish di GitHub Pages / Netlify / Vercel.
+3. Buka link live untuk akses realtime GPS.
+
+## Lisensi
+MIT License
